@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Scrollytelling Bar Charts</title>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+  <!-- Fallback CDN -->
+  <script>
+    if (typeof mapboxgl === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/mapbox-gl/2.15.0/mapbox-gl.min.js"><\/script>');
+      document.write('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mapbox-gl/2.15.0/mapbox-gl.min.css" />');
+    }
+  </script>
+  <style>
+    html, body { 
+      margin: 0; 
+      padding: 0; 
+      height: 100%; 
+      overflow: hidden;
+    }
+    #map { 
+      width: 100vw; 
+      height: 100vh; 
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+    .zoom-display {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 1000;
+    }
+    .chart-info {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 1000;
+      max-width: 300px;
+    }
+    .scroll-instructions {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      font-size: 14px;
+      text-align: center;
+      z-index: 1000;
+    }
+    .color-legend {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      font-size: 12px;
+      z-index: 1000;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 4px 0;
+    }
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  
+  <div class="zoom-display">
+    Zoom: <span id="zoom-level">13.0</span>
+  </div>
+  
+  <div class="chart-info">
+    <div id="chart-title">Bar Chart 1</div>
+    <div id="chart-description">Revenue by Quarter</div>
+  </div>
+  
+  <div class="scroll-instructions">
+    Scroll to zoom and reveal different bar charts
+  </div>
+  
+  <div class="color-legend">
+    <div class="legend-item">
+      <div class="legend-color" style="background: #FF6B6B;"></div>
+      <span>Series 1</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #4ECDC4;"></div>
+      <span>Series 2</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #45B7D1;"></div>
+      <span>Series 3</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #96CEB4;"></div>
+      <span>Series 4</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #FFEAA7;"></div>
+      <span>Series 5</span>
+    </div>
+  </div>
+
+  <script>
+    // Wait for DOM and ensure mapboxgl is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      // Check if mapboxgl is available
+      if (typeof mapboxgl === 'undefined') {
+        console.error('Mapbox GL JS failed to load');
+        document.getElementById('chart-title').textContent = 'Error: Mapbox GL JS failed to load';
+        document.getElementById('chart-description').textContent = 'Please check your internet connection and refresh the page';
+        return;
+      }
+
+      initializeMap();
+    });
+
+    function initializeMap() {
+      mapboxgl.accessToken = 'pk.eyJ1Ijoic3VwZXJqYWNrYmF1ZXIiLCJhIjoiY2twejZnNjlkMDYwazJ4cWI3dmxlc3ZieiJ9.1SCM6Yq0Gu4D3GFCA38F1g';
+
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/dark-v10',
+      center: [-73.99, 40.725],
+      zoom: 13,
+      minZoom: 13,
+      maxZoom: 16,
+      // Disable map interactions to keep it centered
+      dragPan: false,
+      dragRotate: false,
+      doubleClickZoom: false,
+      touchZoomRotate: false,
+      boxZoom: false,
+      keyboard: false
+    });
+
+    // Chart information for each zoom level
+    const chartInfo = {
+      1: { title: "Bar Chart 1", description: "Revenue by Quarter - Initial View" },
+      2: { title: "Bar Chart 2", description: "Market Share Analysis" },
+      3: { title: "Bar Chart 3", description: "Product Performance" },
+      4: { title: "Bar Chart 4", description: "Customer Satisfaction" },
+      5: { title: "Bar Chart 5", description: "Year-over-Year Growth" }
+    };
+
+    // Function to determine which chart should be visible
+    function getCurrentChart(zoom) {
+      if (zoom >= 13 && zoom < 13.5) return 1;
+      if (zoom >= 13.5 && zoom < 14) return 2;
+      if (zoom >= 14 && zoom < 14.5) return 3;
+      if (zoom >= 14.5 && zoom < 15) return 4;
+      if (zoom >= 15) return 5;
+      return 1;
+    }
+
+    // Update UI based on zoom level
+    function updateUI(zoom) {
+      const currentChart = getCurrentChart(zoom);
+      const info = chartInfo[currentChart];
+      
+      document.getElementById('zoom-level').textContent = zoom.toFixed(2);
+      document.getElementById('chart-title').textContent = info.title;
+      document.getElementById('chart-description').textContent = info.description;
+    }
+
+    map.on('load', () => {
+      // Load the GeoJSON data
+      fetch('./bar-chart-circles-animated.json')
+        .then(res => res.json())
+        .then(data => {
+          map.addSource('bars', {
+            type: 'geojson',
+            data: data
+          });
+
+          // Add the main circle layer
+          map.addLayer({
+            id: 'bar-circles',
+            type: 'circle',
+            source: 'bars',
+            paint: {
+              'circle-color': [
+                'match',
+                ['get', 'bar_id'],
+                1, '#FF6B6B',
+                2, '#4ECDC4',
+                3, '#45B7D1',
+                4, '#96CEB4',
+                5, '#FFEAA7',
+                '#FFFFFF'
+              ],
+              'circle-radius': 6,
+              'circle-opacity': 0.9
+            },
+            filter: [
+              'all',
+              ['<=', ['get', 'min_zoom'], ['zoom']],
+              ['>=', ['get', 'max_zoom'], ['zoom']]
+            ]
+          });
+
+          // Add outline layer for better visibility
+          map.addLayer({
+            id: 'bar-circle-outline',
+            type: 'circle',
+            source: 'bars',
+            paint: {
+              'circle-radius': 6.5,
+              'circle-color': 'transparent',
+              'circle-stroke-color': '#ffffff',
+              'circle-stroke-width': 1,
+              'circle-stroke-opacity': 0.8
+            },
+            filter: [
+              'all',
+              ['<=', ['get', 'min_zoom'], ['zoom']],
+              ['>=', ['get', 'max_zoom'], ['zoom']]
+            ]
+          });
+
+          // Initial UI update
+          updateUI(map.getZoom());
+
+          // Update UI when zoom changes
+          map.on('zoom', () => {
+            updateUI(map.getZoom());
+          });
+        })
+        .catch(error => {
+          console.error('Error loading GeoJSON:', error);
+          document.getElementById('chart-title').textContent = 'Error loading data';
+          document.getElementById('chart-description').textContent = 'Please check the console for details';
+        });
+    });
+
+    // Handle scroll events to control zoom
+    let isScrolling = false;
+    const scrollSensitivity = 0.01;
+
+    window.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      
+      if (isScrolling) return;
+      isScrolling = true;
+      
+      const currentZoom = map.getZoom();
+      const deltaZoom = e.deltaY * scrollSensitivity;
+      const newZoom = Math.max(13, Math.min(16, currentZoom + deltaZoom));
+      
+      // Smooth zoom to new level while keeping center fixed
+      map.easeTo({
+        zoom: newZoom,
+        center: [-73.99, 40.725], // Force center to stay fixed
+        duration: 100
+      });
+      
+      setTimeout(() => {
+        isScrolling = false;
+      }, 100);
+    });
+
+    // Touch events for mobile
+    let touchStartY = 0;
+    let isTouching = false;
+
+    window.addEventListener('touchstart', (e) => {
+      touchStartY = e.touches[0].clientY;
+      isTouching = true;
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isTouching) return;
+      e.preventDefault();
+      
+      const touchY = e.touches[0].clientY;
+      const deltaY = touchStartY - touchY;
+      const currentZoom = map.getZoom();
+      const deltaZoom = deltaY * 0.002;
+      const newZoom = Math.max(13, Math.min(16, currentZoom + deltaZoom));
+      
+      map.setZoom(newZoom);
+      map.setCenter([-73.99, 40.725]); // Force center to stay fixed
+      
+      touchStartY = touchY;
+    });
+
+    window.addEventListener('touchend', () => {
+      isTouching = false;
+    });
+    } // End of initializeMap function
+  </script>
+</body>
+</html>
